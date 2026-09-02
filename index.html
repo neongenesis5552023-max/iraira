@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>イライラ - 横長コの字スゴロク</title>
+<style>
+* {
+box-sizing: border-box;
+margin: 0;
+padding: 0;
+}
+
+body {
+font-family: sans-serif;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 20px;
+background-color: #f0f2f5;
+min-height: 100vh;
+}
+
+/* 1. 上部：コの字型フィールドエリア */
+.field-container {
+background: #ffffff;
+padding: 20px;
+border-radius: 12px;
+box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+margin-bottom: 20px;
+}
+
+.grid {
+display: grid;
+grid-template-columns: repeat(5, 50px);
+grid-template-rows: repeat(4, 50px);
+gap: 6px;
+position: relative;
+}
+
+/* コの字の中央空きスペースに配置するタイトル情報 */
+.center-title-area {
+grid-column: 1 / span 4;
+grid-row: 2 / span 2;
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+text-align: center;
+pointer-events: none;
+z-index: 1;
+padding-right: 10px;
+}
+
+.center-title {
+font-size: 1.6rem;
+font-weight: 900;
+color: #2c3e50;
+letter-spacing: 2px;
+line-height: 1.1;
+margin-bottom: 4px;
+text-shadow: 1px 1px 0px #fff;
+}
+
+.center-author {
+font-size: 0.65rem;
+font-weight: bold;
+color: #7f8c8d;
+letter-spacing: 0.5px;
+}
+
+.cell {
+background-color: #3498db;
+color: white;
+font-weight: bold;
+font-size: 1.1rem;
+display: flex;
+align-items: center;
+justify-content: center;
+border-radius: 6px;
+position: relative;
+text-align: center;
+cursor: default;
+transition: transform 0.1s;
+z-index: 2;
+}
+
+/* イベントマスの共通スタイル */
+.cell.event-cell {
+background-color: #f39c12;
+font-size: 0.75rem;
+line-height: 1.2;
+padding: 2px;
+}
+
+/* 特殊機能マスのスタイル（10マス目など） */
+.cell.special-cell {
+background-color: #9b59b6;
+font-size: 0.65rem;
+line-height: 1.2;
+padding: 2px;
+}
+
+/* ワープ選択時のマスハイライト */
+.cell.selectable {
+cursor: pointer;
+box-shadow: 0 0 10px #f1c40f;
+animation: pulse 0.8s infinite alternate;
+}
+
+.cell.selectable:hover {
+transform: scale(1.05);
+}
+
+.cell.start {
+background-color: #e74c3c;
+}
+
+.start-label {
+font-size: 0.75rem;
+color: white;
+font-weight: bold;
+white-space: nowrap;
+}
+
+.cell.goal {
+background-color: #2ecc71;
+font-size: 0.75rem;
+}
+
+/* プレイヤーのコマ（SVGの円） */
+.player-piece-svg {
+position: absolute;
+top: 0;
+left: 0;
+width: 100%;
+height: 100%;
+z-index: 10;
+pointer-events: none;
+}
+
+/* 横長コの字型レイアウト（全12マス） /
+/ 上辺：左から右へ 5マス (1〜5) */
+.pos-1 { grid-column: 1; grid-row: 1; }
+.pos-2 { grid-column: 2; grid-row: 1; }
+.pos-3 { grid-column: 3; grid-row: 1; }
+.pos-4 { grid-column: 4; grid-row: 1; }
+.pos-5 { grid-column: 5; grid-row: 1; }
+
+/* 右辺：上から下へ 2マス (6〜7) */
+.pos-6 { grid-column: 5; grid-row: 2; }
+.pos-7 { grid-column: 5; grid-row: 3; }
+
+/* 下辺：右から左へ 5マス (8〜12) */
+.pos-8 { grid-column: 5; grid-row: 4; }
+.pos-9 { grid-column: 4; grid-row: 4; }
+.pos-10 { grid-column: 3; grid-row: 4; }
+.pos-11 { grid-column: 2; grid-row: 4; }
+.pos-12 { grid-column: 1; grid-row: 4; }
+
+/* 2. 下部：サイコロ＆回答エリア */
+.controls-container {
+background: #ffffff;
+padding: 20px 30px;
+border-radius: 12px;
+box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+display: flex;
+flex-direction: column;
+align-items: center;
+gap: 15px;
+width: 290px;
+position: relative;
+}
+
+/* 正解回数表示エリア */
+.counter-badge {
+background-color: #e8f4fd;
+color: #2980b9;
+font-weight: bold;
+font-size: 1rem;
+padding: 6px 16px;
+border-radius: 20px;
+border: 1px solid #3498db;
+}
+
+/* イベント効果発動中の状態表示 */
+.status-badge {
+background-color: #fff3cd;
+color: #856404;
+font-weight: bold;
+font-size: 0.8rem;
+padding: 4px 10px;
+border-radius: 6px;
+border: 1px solid #ffeeba;
+text-align: center;
+display: none;
+}
+
+.dice-area {
+display: flex;
+align-items: center;
+gap: 12px;
+font-size: 1.5rem;
+font-weight: bold;
+}
+
+.dice {
+width: 52px;
+height: 52px;
+border: 2px solid #333;
+border-radius: 8px;
+display: flex;
+align-items: center;
+justify-content: center;
+background-color: #fafafa;
+font-size: 1.6rem;
+transition: all 0.2s;
+}
+
+/* サイコロ振り直し選択時のハイライト */
+.dice.rerollable {
+cursor: pointer;
+border-color: #f39c12;
+background-color: #fef9e7;
+animation: pulse 1s infinite alternate;
+}
+
+@keyframes pulse {
+0% { transform: scale(1); box-shadow: 0 0 4px #f39c12; }
+100% { transform: scale(1.08); box-shadow: 0 0 10px #f39c12; }
+}
+
+button {
+padding: 10px 18px;
+font-size: 0.95rem;
+font-weight: bold;
+color: white;
+background-color: #2980b9;
+border: none;
+border-radius: 6px;
+cursor: pointer;
+}
+
+button:hover {
+background-color: #1b6291;
+}
+
+button:disabled {
+background-color: #ccc;
+cursor: not-allowed;
+}
+
+/* リタイアボタン */
+.retire-btn {
+background-color: #e74c3c;
+font-size: 0.85rem;
+padding: 6px 14px;
+border-radius: 20px;
+margin-top: 5px;
+}
+
+.retire-btn:hover {
+background-color: #c0392b;
+}
+
+/* もう一度遊ぶボタン */
+.retry-btn {
+background-color: #2ecc71;
+font-size: 1.05rem;
+padding: 12px 24px;
+box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+.retry-btn:hover {
+background-color: #27ae60;
+}
+
+.answer-area {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+
+input[type="number"] {
+width: 140px;
+padding: 6px;
+font-size: 0.85rem;
+text-align: center;
+border: 1px solid #ccc;
+border-radius: 4px;
+}
+
+.result {
+font-size: 0.9rem;
+font-weight: bold;
+min-height: 1.2em;
+text-align: center;
+transition: all 0.2s;
+}
+
+/* 「イベント発生！タップ！」のタップ可能状態スタイル */
+.result.event-trigger {
+cursor: pointer;
+background-color: #f39c12;
+color: white !important;
+padding: 8px 16px;
+border-radius: 20px;
+box-shadow: 0 3px 8px rgba(243, 156, 18, 0.4);
+animation: pulse 0.8s infinite alternate;
+}
+
+.result.event-trigger:hover {
+transform: scale(1.05);
+}
+
+/* ぴったりゴール時の祝福アニメーション */
+.celebration {
+font-size: 1.1rem;
+color: #e67e22;
+animation: pop 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes pop {
+0% { transform: scale(1); }
+100% { transform: scale(1.08); }
+}
+
+/* --- リタイア確認ダイアログのスタイル --- */
+.modal-overlay {
+position: fixed;
+top: 0;
+left: 0;
+width: 100vw;
+height: 100vh;
+background-color: rgba(0, 0, 0, 0.5);
+display: flex;
+align-items: center;
+justify-content: center;
+z-index: 100;
+}
+
+.modal-box {
+background: white;
+padding: 24px;
+border-radius: 12px;
+box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+text-align: center;
+width: 260px;
+}
+
+.modal-title {
+font-size: 1.1rem;
+font-weight: bold;
+color: #2c3e50;
+margin-bottom: 20px;
+}
+
+.modal-buttons {
+display: flex;
+justify-content: space-around;
+gap: 10px;
+}
+
+.modal-btn {
+flex: 1;
+padding: 8px 0;
+border-radius: 6px;
+font-size: 0.95rem;
+}
+
+.btn-yes {
+background-color: #e74c3c;
+}
+.btn-yes:hover {
+background-color: #c0392b;
+}
+
+.btn-no {
+background-color: #7f8c8d;
+}
+.btn-no:hover {
+background-color: #626567;
+}
+</style>
+</head>
+<body>
+
+<!-- 上部：コの字型マス (全12マス) -->
+<div class="field-container">
+<div class="grid">
+<!-- コの字の中央テキストエリア -->
+<div class="center-title-area">
+<div class="center-title">『イライラ』</div>
+<div class="center-author">制作:さつきばれゲーム部</div>
+</div>
+
+<!-- 上辺：1(イベント), 2, 3(イベント), 4, 5(イベント) -->
+<div class="cell pos-1 event-cell" id="cell-1">イベント</div>
+<div class="cell pos-2" id="cell-2"></div>
+<div class="cell pos-3 event-cell" id="cell-3">イベント</div>
+<div class="cell pos-4" id="cell-4"></div>
+<div class="cell pos-5 event-cell" id="cell-5">イベント</div>
+
+<!-- 右辺：6, 7(イベント) -->
+<div class="cell pos-6" id="cell-6"></div>
+<div class="cell pos-7 event-cell" id="cell-7">イベント</div>
+
+<!-- 下辺：8, 9(イベント), 10(1マス進む), 11(スタート), 12(ゴール) -->
+<div class="cell pos-8" id="cell-8"></div>
+<div class="cell pos-9 event-cell" id="cell-9">イベント</div>
+<div class="cell pos-10 special-cell" id="cell-10">1マス<br>進む</div>
+
+<!-- スタートマス（11マス目） -->
+<div class="cell pos-11 start" id="cell-11">
+<span class="start-label">スタート</span>
+<svg class="player-piece-svg" id="player-piece" viewBox="0 0 50 50">
+<circle cx="25" cy="25" r="14" fill="#f1c40f" stroke="#2c3e50" stroke-width="3" />
+</svg>
+</div>
+
+<!-- ゴールマス（12マス目） -->
+<div class="cell pos-12 goal" id="cell-12">ゴール</div>
+</div>
+</div>
+
+<!-- 下部：サイコロ・回答エリア -->
+<div class="controls-container">
+<!-- 正解回数表示 -->
+<div class="counter-badge" id="counter-display">只今 0 回目</div>
+
+<!-- 現在発動中のイベント効果表示 -->
+<div class="status-badge" id="status-badge"></div>
+
+<button id="roll-btn" type="button">サイコロを2つ振る</button>
+
+<div class="dice-area">
+<div class="dice" id="dice1">?</div>
+<span id="operator-symbol">+</span>
+<div class="dice" id="dice2">?</div>
+</div>
+
+<div class="answer-area">
+<label for="ans" id="ans-label">合計：</label>
+<input type="number" id="ans" placeholder="数字" disabled>
+<button id="check-btn" type="button" disabled>回答</button>
+</div>
+
+<div class="result" id="result"></div>
+
+<!-- リタイアボタン -->
+<button id="retire-btn" class="retire-btn" type="button">リタイア</button>
+
+<!-- もう一度遊ぶボタン -->
+<button id="retry-btn" class="retry-btn" type="button" style="display: none;">もう一度遊ぶ？</button>
+</div>
+
+<!-- リタイア確認モーダルダイアログ -->
+<div class="modal-overlay" id="confirm-modal" style="display: none;">
+<div class="modal-box">
+<div class="modal-title">本当に辞めますか？</div>
+<div class="modal-buttons">
+<button id="confirm-yes-btn" class="modal-btn btn-yes" type="button">YES</button>
+<button id="confirm-no-btn" class="modal-btn btn-no" type="button">NO</button>
+</div>
+</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+let targetAnswer = 0; // 解答すべき正解の値
+let diceSum = 0; // 足し算時の合計
+let val1 = 0;
+let val2 = 0;
+let currentPos = 11; // 初期位置：11マス目（スタート）
+let direction = 1; // 1: ゴール方向, -1: 折り返し
+let isMoving = false;
+let isWaitingForEventTap = false; // イベント発生タップ待ちフラグ
+let isWaitingForWarp = false; // ワープ移動待ちフラグ
+let isWaitingForReroll = false; // サイコロ振り直し選択待ちフラグ
+let correctCount = 0; // 正解回数
+
+// イベントマスの状態管理
+let activeEvent = null;
+
+const rollBtn = document.getElementById('roll-btn');
+const checkBtn = document.getElementById('check-btn');
+const retryBtn = document.getElementById('retry-btn');
+const retireBtn = document.getElementById('retire-btn');
+const confirmModal = document.getElementById('confirm-modal');
+const confirmYesBtn = document.getElementById('confirm-yes-btn');
+const confirmNoBtn = document.getElementById('confirm-no-btn');
+
+const dice1 = document.getElementById('dice1');
+const dice2 = document.getElementById('dice2');
+const operatorSymbol = document.getElementById('operator-symbol');
+const ansLabel = document.getElementById('ans-label');
+const ansInput = document.getElementById('ans');
+const result = document.getElementById('result');
+const playerPiece = document.getElementById('player-piece');
+const counterDisplay = document.getElementById('counter-display');
+const statusBadge = document.getElementById('status-badge');
+
+// リタイアボタン押下時
+retireBtn.onclick = function() {
+confirmModal.style.display = 'flex';
+};
+
+// 「YES」選択時（ゲームをリセットして初期配置へ）
+confirmYesBtn.onclick = function() {
+confirmModal.style.display = 'none';
+resetGame();
+};
+
+// 「NO」選択時（ダイアログを閉じてゲーム続行）
+confirmNoBtn.onclick = function() {
+confirmModal.style.display = 'none';
+};
+
+// 「イベント発生！タップ！」のテキスト自体がクリック（タップ）された時の処理
+result.addEventListener('click', function() {
+if (!isWaitingForEventTap) return;
+
+isWaitingForEventTap = false;
+result.classList.remove('event-trigger');
+triggerRandomEvent();
+});
+
+const cells = {};
+// 1〜12のマスの要素を取得
+for (let i = 1; i <= 12; i++) {
+const cell = document.getElementById('cell-' + i);
+cells[i] = cell;
+
+// マスクリック（タップ）イベントの登録（ワープ選択時）
+cell.addEventListener('click', function() {
+if (isWaitingForWarp) {
+if (i === 12) {
+result.style.color = "#e74c3c";
+result.textContent = "ここはダメ";
+} else {
+currentPos = i;
+cells[currentPos].appendChild(playerPiece);
+
+isWaitingForWarp = false;
+activeEvent = null;
+updateStatusBadge();
+enableFieldSelection(false);
+
+result.style.color = "#2ecc71";
+result.textContent = "好きなマスに移動しました！";
+
+// ワープで10マス目にとまった場合の処理
+checkAndApplySpecialCell();
+}
+}
+});
+}
+
+// サイコロをクリック（タップ）したときの振り直しイベント
+dice1.addEventListener('click', function() {
+if (isWaitingForReroll) rerollDice(1);
+});
+dice2.addEventListener('click', function() {
+if (isWaitingForReroll) rerollDice(2);
+});
+
+// イベント状態バッジの表示切り替え
+function updateStatusBadge() {
+if (activeEvent === 'odd2') {
+statusBadge.textContent = "⚡️ 次の合計が奇数なら2マス進む";
+statusBadge.style.display = "block";
+} else if (activeEvent === 'even1') {
+statusBadge.textContent = "⚡️ 次の合計が偶数なら1マス進む";
+statusBadge.style.display = "block";
+} else if (activeEvent === 'plus1') {
+statusBadge.textContent = "⚡️ 次の移動：出た目 + 1マス進む";
+statusBadge.style.display = "block";
+} else if (activeEvent === 'back1') {
+statusBadge.textContent = "⚡️ 次の移動：とまったマスから1つ戻る";
+statusBadge.style.display = "block";
+} else if (activeEvent === 'oneDice') {
+statusBadge.textContent = "⚡️ 次のサイコロ：1つ（片方は0）";
+statusBadge.style.display = "block";
+} else if (activeEvent === 'reroll') {
+statusBadge.textContent = "⚡️ 次：振った後、片方を振り直す";
+statusBadge.style.display = "block";
+} else if (activeEvent === 'subtraction') {
+statusBadge.textContent = "⚡️ 次：出た目を引き算して進む";
+statusBadge.style.display = "block";
+} else {
+statusBadge.style.display = "none";
+}
+}
+
+// ワープ時の選択可能ハイライト切り替え
+function enableFieldSelection(enable) {
+for (let i = 1; i <= 12; i++) {
+if (enable) {
+cells[i].classList.add('selectable');
+} else {
+cells[i].classList.remove('selectable');
+}
+}
+}
+
+// 1. サイコロを振る処理
+function rollDice() {
+if (isMoving || isWaitingForEventTap || isWaitingForWarp || isWaitingForReroll) return;
+
+if (activeEvent === 'oneDice') {
+const mainVal = Math.floor(Math.random() * 6) + 1;
+if (Math.random() < 0.5) {
+val1 = mainVal;
+val2 = 0;
+} else {
+val1 = 0;
+val2 = mainVal;
+}
+} else {
+val1 = Math.floor(Math.random() * 6) + 1;
+val2 = Math.floor(Math.random() * 6) + 1;
+}
+
+diceSum = val1 + val2;
+rollBtn.disabled = true;
+
+// 引き算イベント発動時の表示・値設定
+if (activeEvent === 'subtraction') {
+if (val1 < val2) {
+const temp = val1;
+val1 = val2;
+val2 = temp;
+}
+
+dice1.textContent = val1;
+dice2.textContent = val2;
+
+operatorSymbol.textContent = '−';
+ansLabel.textContent = '答え：';
+targetAnswer = val1 - val2;
+} else {
+dice1.textContent = val1;
+dice2.textContent = val2;
+
+operatorSymbol.textContent = '+';
+ansLabel.textContent = '合計：';
+targetAnswer = diceSum;
+}
+
+if (activeEvent === 'reroll') {
+isWaitingForReroll = true;
+ansInput.value = '';
+ansInput.placeholder = 'どちらかの数字をタップ';
+ansInput.disabled = true;
+checkBtn.disabled = true;
+
+dice1.classList.add('rerollable');
+dice2.classList.add('rerollable');
+
+result.style.color = "#f39c12";
+result.textContent = "振り直したい方のサイコロをタップしてください";
+return;
+}
+
+ansInput.placeholder = '数字';
+ansInput.value = '';
+ansInput.disabled = false;
+checkBtn.disabled = false;
+
+if (activeEvent === 'oneDice') {
+result.style.color = "#f39c12";
+result.textContent = "イベント発生中：サイコロは1つ（片方は0）です！";
+} else if (activeEvent === 'subtraction') {
+result.style.color = "#f39c12";
+result.textContent = "イベント発生中：引き算を計算してね！";
+} else {
+result.textContent = '';
+}
+
+result.classList.remove('celebration');
+ansInput.focus();
+}
+
+rollBtn.onclick = rollDice;
+
+// サイコロ振り直しを実行する関数
+function rerollDice(targetDiceNumber) {
+if (!isWaitingForReroll) return;
+
+const newVal = Math.floor(Math.random() * 6) + 1;
+if (targetDiceNumber === 1) {
+val1 = newVal;
+dice1.textContent = val1;
+} else {
+val2 = newVal;
+dice2.textContent = val2;
+}
+
+diceSum = val1 + val2;
+targetAnswer = diceSum;
+
+isWaitingForReroll = false;
+dice1.classList.remove('rerollable');
+dice2.classList.remove('rerollable');
+
+ansInput.placeholder = '数字';
+ansInput.disabled = false;
+checkBtn.disabled = false;
+
+result.style.color = "#2ecc71";
+result.textContent = "サイコロを振り直しました！足し算を計算してね";
+ansInput.focus();
+}
+
+// Enterキー入力対応
+ansInput.onkeydown = function(e) {
+if (e.key === 'Enter' && !checkBtn.disabled) {
+checkBtn.click();
+}
+};
+
+// 2. 回答チェック処理
+checkBtn.onclick = function() {
+if (isMoving || isWaitingForEventTap || isWaitingForWarp || isWaitingForReroll) return;
+
+const userVal = parseInt(ansInput.value, 10);
+if (isNaN(userVal)) return;
+
+if (userVal === targetAnswer) {
+correctCount++;
+counterDisplay.textContent = '只今 ' + correctCount + ' 回目';
+
+ansInput.disabled = true;
+checkBtn.disabled = true;
+
+let stepsToMove = targetAnswer;
+const isOdd = (diceSum % 2 !== 0);
+
+let message = "⭕️ 正解！コマが進みます";
+
+const currentActiveEvent = activeEvent;
+
+if (currentActiveEvent === 'odd2') {
+if (isOdd) {
+stepsToMove = 2;
+message = "⭕️ 正解！（奇数なので2マス進みます）";
+}
+} else if (currentActiveEvent === 'even1') {
+if (!isOdd) {
+stepsToMove = 1;
+message = "⭕️ 正解！（偶数なので1マス進みます）";
+}
+} else if (currentActiveEvent === 'plus1') {
+stepsToMove = diceSum + 1;
+message = "⭕️ 正解！（出た目 + 1マス進みます）";
+} else if (currentActiveEvent === 'back1') {
+message = "⭕️ 正解！コマが進みます（後で1マス戻ります）";
+} else if (currentActiveEvent === 'subtraction') {
+if (stepsToMove === 0) {
+message = "⭕️ 正解！（差が0なので進みません）";
+} else {
+message = "⭕️ 正解！（引き算の差だけ進みます）";
+}
+} else if (currentActiveEvent === 'oneDice' || currentActiveEvent === 'reroll') {
+message = "⭕️ 正解！コマが進みます";
+}
+
+activeEvent = null;
+updateStatusBadge();
+
+result.style.color = "#2ecc71";
+result.textContent = message;
+
+movePlayer(stepsToMove, currentActiveEvent === 'back1');
+} else {
+result.style.color = "#e67e22";
+result.textContent = "もう一度計算してみよう";
+ansInput.select();
+}
+};
+
+// 3. コマの移動アニメーション
+function movePlayer(steps, isBack1Event) {
+if (steps === 0) {
+setTimeout(function() {
+handleCellLanding();
+}, 1000);
+return;
+}
+
+isMoving = true;
+let count = 0;
+
+if (currentPos !== 12) {
+direction = 1;
+}
+
+const timer = setInterval(function() {
+if (count >= steps) {
+clearInterval(timer);
+
+if (isBack1Event) {
+setTimeout(function() {
+currentPos = (currentPos === 1) ? 11 : currentPos - 1;
+if (cells[currentPos]) {
+cells[currentPos].appendChild(playerPiece);
+}
+result.style.color = "#e67e22";
+result.textContent = "イベント効果：1マス戻りました！";
+
+setTimeout(function() {
+handleCellLanding();
+}, 400);
+}, 400);
+} else {
+handleCellLanding();
+}
+return;
+}
+
+if (currentPos === 12 && direction === 1) {
+direction = -1;
+}
+if (currentPos === 1 && direction === -1) {
+direction = 1;
+}
+
+currentPos += direction;
+
+if (cells[currentPos]) {
+cells[currentPos].appendChild(playerPiece);
+}
+
+count++;
+}, 300);
+}
+
+// イベント抽選関数（指定の確率分布：合計12）
+function triggerRandomEvent() {
+const rand = Math.floor(Math.random() * 12);
+let selectedEvent = '';
+
+if (rand < 3) {
+selectedEvent = 'goToStart';
+} else if (rand < 5) {
+selectedEvent = 'warp';
+} else if (rand === 5) {
+selectedEvent = 'subtraction';
+} else if (rand === 6) {
+selectedEvent = 'reroll';
+} else if (rand === 7) {
+selectedEvent = 'oneDice';
+} else if (rand === 8) {
+selectedEvent = 'back1';
+} else if (rand === 9) {
+selectedEvent = 'plus1';
+} else if (rand === 10) {
+selectedEvent = 'even1';
+} else {
+selectedEvent = 'odd2';
+}
+
+if (selectedEvent === 'warp') {
+isWaitingForWarp = true;
+enableFieldSelection(true);
+result.style.color = "#f39c12";
+result.textContent = "【イベント発動】好きなマスをクリック（タップ）してね！";
+rollBtn.disabled = true;
+} else if (selectedEvent === 'goToStart') {
+setTimeout(function() {
+currentPos = 11; // スタートマス（11マス目）へワープ
+if (cells[11]) {
+cells[11].appendChild(playerPiece);
+}
+result.style.color = "#e74c3c";
+result.textContent = "【イベント発動】スタートへもどった！";
+rollBtn.disabled = false;
+}, 300);
+} else {
+activeEvent = selectedEvent;
+updateStatusBadge();
+result.style.color = "#f39c12";
+result.textContent = "【イベント発動】次のサイコロで効果発動！";
+rollBtn.disabled = false;
+}
+}
+
+// 10のマス（ココにとまったら1マス進む）の処理確認関数
+function checkAndApplySpecialCell() {
+if (currentPos === 10) {
+setTimeout(function() {
+currentPos = 11; // 10マス目から1マス進んでスタート（11マス目）へ
+if (cells[11]) {
+cells[11].appendChild(playerPiece);
+}
+result.style.color = "#9b59b6";
+result.textContent = "ココにとまったら1マス進む";
+rollBtn.disabled = false;
+}, 400);
+} else {
+rollBtn.disabled = false;
+}
+}
+
+// 着地したマスの処理
+function handleCellLanding() {
+operatorSymbol.textContent = '+';
+ansLabel.textContent = '合計：';
+
+// 指定のイベントマス（1, 3, 5, 7, 9 マス目）に止まった場合
+if ([1, 3, 5, 7, 9].includes(currentPos)) {
+isMoving = false;
+isWaitingForEventTap = true;
+rollBtn.disabled = true; // タップされるまでサイコロは振れない
+
+// メッセージ欄を「イベント発生！タップ！」のボタン風表示にする
+result.textContent = "イベント発生！タップ！";
+result.classList.add('event-trigger');
+
+// ゴール判定（12マス目）
+} else if (currentPos === 12) {
+isMoving = false;
+result.style.color = "#e67e22";
+result.classList.add('celebration');
+result.textContent = "🎉 おめでとう！！ピッタリゴール達成！";
+rollBtn.disabled = true;
+retryBtn.style.display = 'block';
+retireBtn.style.display = 'none'; // ゴール時はリタイアボタンを非表示
+} else {
+isMoving = false;
+// 全処理完了後、10のマスにとまっている場合の最終判定
+checkAndApplySpecialCell();
+}
+}
+
+// 全体の初期化・リセット処理関数
+function resetGame() {
+currentPos = 11;
+direction = 1;
+isMoving = false;
+isWaitingForEventTap = false;
+isWaitingForWarp = false;
+isWaitingForReroll = false;
+correctCount = 0;
+targetAnswer = 0;
+diceSum = 0;
+val1 = 0;
+val2 = 0;
+activeEvent = null;
+
+operatorSymbol.textContent = '+';
+ansLabel.textContent = '合計：';
+
+dice1.classList.remove('rerollable');
+dice2.classList.remove('rerollable');
+result.classList.remove('event-trigger');
+
+updateStatusBadge();
+enableFieldSelection(false);
+
+counterDisplay.textContent = '只今 0 回目';
+dice1.textContent = '?';
+dice2.textContent = '?';
+ansInput.value = '';
+ansInput.placeholder = '数字';
+ansInput.disabled = true;
+checkBtn.disabled = true;
+rollBtn.disabled = false;
+retireBtn.style.display = 'inline-block';
+
+result.textContent = '';
+result.classList.remove('celebration');
+
+retryBtn.style.display = 'none';
+
+if (cells[11]) {
+cells[11].appendChild(playerPiece);
+}
+}
+
+// 4. もう一度遊ぶ（リセット）処理
+retryBtn.onclick = resetGame;
+});
+</script>
+
+</body>
+</html>
